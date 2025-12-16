@@ -68,6 +68,17 @@ def collect(target_scraper=None):
     db = next(db_gen)
     print("DEBUG: Got DB connection", flush=True)
     
+    # Calculate date range: last Friday to today
+    from datetime import datetime, timedelta
+    today = datetime.now()
+    days_since_friday = (today.weekday() - 4) % 7  # Friday is 4
+    if days_since_friday == 0 and today.hour < 12:  # If it's Friday morning, go back a week
+        days_since_friday = 7
+    last_friday = today - timedelta(days=days_since_friday)
+    last_friday = last_friday.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    logger.info(f"Collecting articles from {last_friday.strftime('%Y-%m-%d')} to {today.strftime('%Y-%m-%d')}")
+    
     all_scrapers = [
         EkantipurScraper(),
         KathmanduPostScraper(),
@@ -104,12 +115,36 @@ def collect(target_scraper=None):
             try:
                 articles = scraper.run()
                 for data in articles:
-                    # 1. Deduplication check
+                    # 1. Date filter - skip articles outside date range
+                    if data.get('published_at'):
+                        # Make both timezone-naive for comparison
+                        pub_date = data['published_at']
+                        if pub_date.tzinfo is not None:
+                            pub_date = pub_date.replace(tzinfo=None)
+                        
+                        if pub_date < last_friday or pub_date > today:
+                            logger.debug(f"Skipping article outside date range: {data.get('title', 'No title')[:50]} (published: {pub_date})")
+                            continue
+                    
+                    # 2. Deduplication check by URL
                     db.cursor.execute("SELECT 1 FROM articles WHERE url = ?", (data['url'],))
                     if db.cursor.fetchone():
                         continue
                     
-                    # 2. Filter out opinion/commentary content by URL and title patterns
+                    # 3. Deduplication check by title similarity (catch same news from different sources)
+                    title_to_check = data.get('title', '').strip()
+                    if title_to_check:
+                        db.cursor.execute("SELECT title_original FROM articles")
+                        existing_titles = [row[0] for row in db.cursor.fetchall()]
+                        
+                        from difflib import SequenceMatcher
+                        for existing_title in existing_titles:
+                            similarity = SequenceMatcher(None, title_to_check.lower(), existing_title.lower()).ratio()
+                            if similarity >= 0.85:  # 85% similar titles = duplicate
+                                logger.debug(f"Skipping duplicate by title: {title_to_check[:50]}")
+                                continue
+                    
+                    # 4. Filter out opinion/commentary content by URL and title patterns
                     url_lower = data['url'].lower()
                     title_lower = data.get('title', '').lower()
                     
@@ -124,7 +159,7 @@ def collect(target_scraper=None):
                         logger.info(f"Skipping opinion/interview content: {data['title']}")
                         continue
                     
-                    # 3. Translation - ensure Nepali content is properly translated
+                    # 5. Translation - ensure Nepali content is properly translated
                     # Check both title and full_text for Nepali characters
                     needs_translation = (
                         data.get('language') == 'ne' or 
@@ -173,13 +208,13 @@ def collect(target_scraper=None):
                         data['title_translated'] = data['title']
                         data['full_text_translated'] = data['full_text']
                     
-                    # 4. Generate summary from translated text (for English summaries)
+                    # 6. Generate summary from translated text (for English summaries)
                     summary_text = ""
                     if data.get('full_text_translated'):
                         temp_summarizer = Summarizer()
                         summary_text = temp_summarizer.summarize(data['full_text_translated'])
                     
-                    # 5. Classification
+                    # 7. Classification
                     text_for_class = (data.get('title_translated') or "") + "\n" + (data.get('full_text_translated') or "")
                     classification = classifier.classify(text_for_class)
                     
