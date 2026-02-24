@@ -124,4 +124,3 @@ def extract_article(html, url):
     except Exception as e:
         logger.error(f"Extraction failed for {url}: {e}")
         return None
-1

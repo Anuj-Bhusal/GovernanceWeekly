@@ -19,12 +19,9 @@ class MyRepublicaScraper(BaseScraper):
             
         links = self.extract_links(homepage_html)
         
-        # Filter by current year (check for year pattern in URL)
-        today = datetime.now()
-        current_year_pattern = str(today.year)
-        
-        # MyRepublica links with year filter
-        article_links = [l for l in links if ("/news/story/" in l or "/news/corruption/" in l or "/news/politics/" in l) and current_year_pattern in l]
+        # MyRepublica uses slug-based URLs without year pattern
+        # Filter for news articles (general news links)
+        article_links = [l for l in links if "/news/" in l and l.endswith(".html")]
         
         # Exclude opinion/blog/column/interview URLs
         article_links = [l for l in article_links if not any(x in l.lower() for x in ['/opinion/', '/blog/', '/column/', '/interview/', '/editorial/', '/perspective/', '/commentary/'])]

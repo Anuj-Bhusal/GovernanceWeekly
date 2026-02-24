@@ -18,12 +18,8 @@ class AnnapurnaPostScraper(BaseScraper):
             
         links = self.extract_links(homepage_html)
         
-        # Filter by current year
-        today = datetime.now()
-        current_year_pattern = str(today.year)
-        
-        # Annapurna Post links with year filter
-        article_links = [l for l in links if "/news/" in l and self.domain in l and current_year_pattern in l]
+        # Annapurna Post links - filter for news section
+        article_links = [l for l in links if "/news/" in l and self.domain in l]
         
         # Exclude opinion/blog/column/interview URLs
         article_links = [l for l in article_links if not any(x in l.lower() for x in ['/opinion/', '/blog/', '/column/', '/interview/', '/editorial/', '/bichar/'])]

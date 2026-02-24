@@ -18,12 +18,8 @@ class UkaaloScraper(BaseScraper):
             
         links = self.extract_links(homepage_html)
         
-        # Filter by current year
-        today = datetime.now()
-        current_year_pattern = str(today.year)
-        
-        # Ukaalo links with year filter
-        article_links = [l for l in links if self.domain in l and any(x in l for x in ["/news/", "/politics/", "/society/"]) and current_year_pattern in l]
+        # Ukaalo links - filter for news sections
+        article_links = [l for l in links if self.domain in l and any(x in l for x in ["/news/", "/politics/", "/society/"])]
         
         # Exclude opinion/blog/column/interview URLs
         article_links = [l for l in article_links if not any(x in l.lower() for x in ['/opinion/', '/blog/', '/column/', '/interview/', '/editorial/', '/bichar/'])]

@@ -18,12 +18,9 @@ class SetopatiScraper(BaseScraper):
             
         links = self.extract_links(homepage_html)
         
-        # Filter by current year
-        today = datetime.now()
-        current_year_pattern = str(today.year)
-        
-        # Setopati links with year filter
-        article_links = [l for l in links if any(x in l for x in ["/politics/", "/social/", "/kinmel/", "/nepali-brand/"]) and current_year_pattern in l]
+        # Setopati uses numeric article IDs, no year in URL
+        # Filter for relevant sections
+        article_links = [l for l in links if any(x in l for x in ["/politics/", "/social/", "/kinmel/", "/nepali-brand/"])]
         
         # Exclude opinion/blog/story/interview URLs
         article_links = [l for l in article_links if not any(x in l.lower() for x in ['/opinion/', '/blog/', '/column/', '/interview/', '/story/', '/editorial/', '/bichar/', '/bisleshan/'])]
